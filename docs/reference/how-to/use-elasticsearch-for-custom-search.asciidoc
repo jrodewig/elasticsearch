@@ -1,0 +1,174 @@
+[[use-elasticsearch-for-custom-search]]
+== Use {es} for custom search
+
+TIP: https://www.elastic.co/enterprise-search[Enterprise Search] is the easiest
+way to add search to a website, application, or workplace. If you use Enterprise
+Search, skip this guide and see the {enterprise-search-ref}[Enterprise Search
+documentation].
+
+[discrete]
+[[set-up-content-tier]]
+=== Step 1. Set up the content data tier
+
+Unless they're part of a data stream, {es} automatically adds new indices to the
+<<content-tier,content data tier>>. Use high-performance nodes in this tier for
+faster indexing and searches.
+
+The steps for setting up the content tier vary based on your deployment type:
+
+include::{es-repo-dir}/tab-widgets/code.asciidoc[]
+include::{es-repo-dir}/tab-widgets/content-tier-widget.asciidoc[]
+
+[discrete]
+[[configure-index]]
+=== Step 2. Configure your index
+
+Although you can automatically create an index by adding data to it, you
+typically want to configure the index first.
+
+Use the create index API to configure and created an index in a single request.
+Include any `settings` and `mappings` for the index in the request.
+
+TIP: If your changes include modifications to existing field mappings or static index settings, a reindex is often required to apply the changes to a data stream’s backing indices. 
+
+[source,console]
+----
+PUT my-product-catalog
+{
+  "settings": {
+    "index.number_of_replicas": 2
+  },
+  "mappings": {
+    "properties": {
+      "description": {
+        "type": "text",
+        "analyzer": "standard"
+      },
+      "category": {
+        "type": "keyword"
+      }
+    }
+  }
+}
+----
+
+[discrete]
+[[add-content-data]]
+=== Step 3. Add data
+
+To add an individual document to an index, use the index API. Each document must
+have a unique `_id` within its index. To specify the `_id`, use a `PUT` request.
+
+[source,console]
+----
+PUT my-product-catalog/_doc/my-unique-doc-id
+{
+  "description": "A fitted mithril T-shirt",
+  "type": "apparel"
+}
+----
+
+You typically specify a custom `_id`. This makes it easier to retrieve and
+update documents later on. If wanted, you can use a `POST` request to
+auto-generate the `_id`.
+
+[source,console]
+----
+POST my-product-catalog/_doc
+{
+  "description": "A bottle of endless water",
+  "type": "home goods"
+}
+----
+// TEST[s/_doc/_doc?refresh/]
+
+To add multiple documents in one request, use the bulk API.
+
+[source,console]
+----
+POST my-product-catalog/_bulk
+{ "index": { "_id": "holding-bag" } }
+{ "description": "A holding bag", "type": "apparel" }
+{ "index": { "_id": "portable-hole" }
+{ "description": "A portable hole", "type": "home goods" }
+----
+
+[discrete]
+[[read-content-data]]
+=== Step 4. Read data
+
+You can read existing data using the <<docs-get,get API>>. To check if a
+document exists, submit a `HEAD` request.
+
+If the document exists, the API returns a `200` HTTP status code. Otherwise the
+request returns `404`.
+
+[source,console]
+----
+HEAD my-product-catalog/_doc/my-unique-doc-id
+----
+
+Use a `GET` request to get the document's metadata and `_source`, the JSON
+object provided when indexing the document.
+
+[source,console]
+----
+GET my-product-catalog/_doc/my-unique-doc-id
+----
+
+The response includes metadata that Elasticsearch generates for the document:
+
+* The `_index` and document `_id`
+* A `_seq_no` and `_primary_term` for
+<<optimistic-concurrency-control,optimistic concurrency control>>. You can
+provide these values to ensure you update only a specific version of the
+document.
+* A `_version` for <<index-versioning,external versioning>>.
+
+[source,console-result]
+----
+{
+  "_index": "my-product-catalog",
+  "_id": "my-unique-doc-id",
+  "_version": 1,
+  "result": "created",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  },
+  "_seq_no": 0,
+  "_primary_term": 1
+}
+----
+
+To get multiple documents in a single request, use the <<docs-multi-get,multi
+get API>>.
+
+[source,console]
+----
+{
+  "docs": [
+    {
+      "_index": "my-product-catalog",
+      "_id": "my-unique-doc-id"
+    },
+    {
+      "_index": "my-product-catalog",
+      "_id": "holding-bag"
+    }
+  ]
+}
+----
+
+[discrete]
+[[update-content-data]]
+=== Step 5. Update data
+
+[discrete]
+[[delete-content-data]]
+=== Step 6. Delete data
+
+[discrete]
+[[search-analyze-content-data]]
+=== Step 7. Search and analyze data

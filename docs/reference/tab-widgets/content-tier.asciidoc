@@ -1,0 +1,45 @@
+// tag::cloud[]
+
+{ess} deployments enable the content tier by default. To create a deployment:
+
+. Log in to the {ess-trial}[{ess} Console].
+
+. Add or select your deployment from the {ess} home page or the deployments
+page.
+
+. From your deployment menu, select **Edit deployment**.
+
+**Enable autoscaling**
+
+{cloud}/ec-autoscaling.html[Autoscaling] automatically adjusts your deployment's
+capacity to meet your storage needs. To enable autoscaling, select **Autoscale
+this deployment** on the **Edit deployment** page. Autoscaling is only available
+for {ess}.
+// end::cloud[]
+
+// tag::self-managed[]
+To assign a node to a data tier, add the respective <<node-roles,node role>> to
+the node's `elasticsearch.yml` file. Changing an existing node's roles requires
+a <<restart-cluster-rolling,rolling restart>>.
+
+[source,yaml]
+----
+# Content tier
+node.roles: [ data_content ]
+----
+
+If needed, you can assign other nodes to more than one tier.
+
+[source,yaml]
+----
+node.roles: [ data_content, data_hot ]
+----
+
+Assign your nodes any other roles needed for your cluster. For example, a small
+cluster may have nodes with multiple roles.
+
+[source,yaml]
+----
+node.roles: [ master, ingest, data_content, data_hot ]
+----
+// end::self-managed[]
