@@ -1,0 +1,279 @@
+[chapter]
+[[index-your-data]]
+= Index your data
+
+You add data to {es} as JSON objects called documents. {es} stores these
+documents in searchable indices.
+
+IMPORTANT: For time series data, such as logs and metrics, you typically add
+documents to a <<data-streams,data stream>> made up of multiple indices. Data
+streams requires additional setup. See <<set-up-a-data-stream>>.
+
+[discrete]
+[[index-individual-document]]
+=== Index an individual document
+
+Within an index, each document must have a unique `_id`. To automatically
+generate the `_id`, use a POST request for the <<docs-index_,index API>>.
+
+The following request adds a document to `my-index`. Since `my-index` doesn't
+exist, this request creates it.
+
+[source,console]
+----
+POST my-index/_doc
+{
+  "my-field": "some value"
+}
+----
+
+The response includes the `_id` and other metadata for the document:
+
+[source,console-result]
+----
+{
+  "_index": "my-index",
+  "_id": "gl5MJXMBMk1dGnErnBW8",
+  "_version": 1,
+  "result": "created",
+  "_shards": {
+    "total": 2,
+    "successful": 1,
+    "failed": 0
+  },
+  "_seq_no": 0,
+  "_primary_term": 1
+}
+----
+// TESTRESPONSE[s/"_id": "gl5MJXMBMk1dGnErnBW8"/"_id": $body._id/]
+
+To specify an `_id`, use a PUT request. This makes it easier to later update the
+document. The following PUT request adds a JSON document with an `_id` of `1`.
+
+[source,console]
+----
+PUT my-index/_doc/1
+{
+  "my-field": "some value"
+}
+----
+
+[discrete]
+[[index-multiple-documents]]
+=== Index multiple documents
+
+Use the <<docs-bulk,bulk API>> to add multiple documents in one request. Bulk
+data must be newline-delimited JSON (NDJSON). Each line must end in a newline
+character (`\n`), including the last line.
+
+[source,console]
+----
+POST my-index/_bulk
+{ "index": { "_id": "2" } }
+{ "my-field": "some value" }
+{ "index": { "_id": "3" } }
+{ "my-field": "some value" }
+----
+
+To auto-generate an `_id`, omit the `_id` parameter.
+
+[source,console]
+----
+POST my-index/_bulk
+{ "index": { } }
+{ "my-field": "some value" }
+----
+
+To add documents to different indices, specify the `_index` parameter. If
+specified, this parameter overrides the index specified in the request path.
+
+[source,console]
+----
+POST _bulk
+{ "index": { "_index": "my-index"} }
+{ "my-field": "some value" }
+{ "index": { "_index": "my-other-index", "_id": "1" } }
+{ "my-field": "some value" }
+----
+
+[discrete]
+[[create-index]]
+=== Create an index
+
+If you submit an indexing request to an index that doesn't exist, {es} creates
+it with default mappings and settings. To configure an index, use the
+<<indices-create-index,create index API>> to create it before adding documents.
+
+[source,console]
+----
+PUT my-index
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 3,
+      "number_of_replicas": 2
+    }
+  },
+  "mappings": {
+    "properties": {
+      "my-field": {
+        "type": "keyword"
+      }
+    }
+  }
+}
+----
+
+You can also set up an index template to automatically configure new indices.
+See <<index-templates>>.
+
+[[update-data]]
+=== Update data
+
+**Replace documents**
+
+Each indexing request has an operation type, or `op_type`. Requests with an
+`op_type` of `index` replace an existing document with the same `_id`. Requests
+with an `op_type` of `create` only create new documents. `create` requests fail
+if a document with the same `_id` already exists.
+
+Index API requests with a `PUT <target>/_doc/<_id>` request path use an
+`op_type` of `index` by default. All other request paths for the index API use
+an `op_type` of `create`.
+
+The bulk API's `index` action also uses an `op_type` of `index`. The `create`
+action uses an `op_type` of `create`.
+
+Index API requests with a `PUT <target>/_doc/<_id>` request path use an
+`op_type` of `index` by default.
+
+**Partial updates**
+
+To add new fields to a document or update specific field values without
+replacing the entire document, use the <<docs-update,update API>>.
+
+**Upserts**
+
+Use the update API's `upsert` parameter to update a document based on whether
+it exists.
+
+For example, the following request updates the `my-field` value if the document
+already exists. If the document doesn't exist, the request indexes the `upsert`
+document.
+
+[[get-data]]
+=== Get data
+
+To retrieve a document, use a <<docs-get,GET request>> that includes the `_id`.
+
+[source,console]
+----
+GET my-index/_doc/1
+----
+// TEST[s/^/PUT my-index\/_doc\/1 { "my-field": "some value" }\/n/]
+
+The API returns:
+
+[source,console-result]
+----
+{
+  "_index": "my-index",
+  "_id": "1",
+  "_version": 1,
+  "_seq_no": 0,
+  "_primary_term": 1,
+  "found": true,
+  "_source": {
+    "my-field": "some value"
+  }
+}
+----
+
+If `found` is `true`, the response includes a `_source` object. The `_source`
+contains the entire JSON object provided during indexing.
+
+To retrieve multiple documents in a single request, use the
+<<docs-multi-get,`_mget` endpoint>>.
+
+[source,console]
+----
+GET _mget
+{
+  "docs": [
+    {
+      "_index": "my-index",
+      "_id": "1"
+    },
+    {
+      "_index": "my-index",
+      "_id": "2"
+    }
+  ]
+}
+----
+// TEST[s/^/PUT my-index\/_doc\/1 { "my-field": "some value" }\/nPUT my-index\/_doc\/2 { "my-field": "some value" }\/n/]
+
+[discrete]
+[[delete-data]]
+=== Delete data
+
+To delete a document, use the <<docs-delete,delete API>>.
+
+TIP: {es} doesn't immediately remove deleted documents from its filesystem.
+Deleting large numbers of documents often increases resource usage. See
+<<delete-indices-not-documents>>.
+
+[source,console]
+----
+DELETE /my-index/_doc/1
+----
+// TEST[s/^/PUT my-index\/_doc\/1 { "my-field": "some value" }\/n/]
+
+// TODO: Bulk 
+
+[discrete]
+[[refresh]]
+=== Refresh
+
+A refresh makes changes and new documents visible to search. By default, {es}
+refreshes indices every second, but only on indices that have received one
+search request or more in the last 30 seconds. You can change the default
+interval using <<index-refresh-interval-setting,`index.refresh_interval`>> index
+setting.
+
+To immediately refresh any relevant shards after a change, use the `refresh`
+parameter for the following APIs:
+
+* Index API
+* Update API
+* Bulk API
+* Delete API
+
+Refreshes are expensive. Lowering the refresh interval or forcing refreshes
+using the `refresh` parameter can slow indexing speeds.
+
+
+To trigger a refresh on a shard after 
+
+[discrete]
+[[optimistic-concurrency-control]]
+=== Optimistic concurrency control
+
+Every operation performed on a document is assigned a sequence number, or
+`seq_no`, by the primary shard that coordinates that change. Each time you
+change a document, {es} increases the document's `seq_no`. Each version of a
+document has a different combination of `seq_no` and `_primary_term` values.
+
+To ensure you don't overwrite a newer version of the document, you can specify
+these values in the `if_seq_no` and `if_primary_term` parameters for
+the following APIs:
+
+* Index API
+* Update API
+* Bulk API
+* Delete API
+
+You can get a document's `seq_no` and `_primary_term` values using a get API
+request.
+
+You can also use the search API's `seq_no_primary_term` parameter.

@@ -21,6 +21,8 @@ include::setup.asciidoc[]
 
 include::upgrade.asciidoc[]
 
+include::index-your-data.asciidoc[]
+
 include::index-modules.asciidoc[]
 
 include::mapping.asciidoc[]
