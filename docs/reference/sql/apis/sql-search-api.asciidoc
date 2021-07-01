@@ -1,0 +1,234 @@
+[role="xpack"]
+[testenv="basic"]
+[[sql-search-api]]
+=== SQL search API
+++++
+<titleabbrev>SQL search</titleabbrev>
+++++
+
+Returns results for an <<xpack-sql,SQL search>>.
+
+[source,console]
+----
+GET _sql?format=txt
+{
+  "query": """
+    SELECT "field" FROM "my-index" WHERE "column" = "value"
+  """
+}
+----
+// TEST[setup:my_index]
+// TEST[s/"field"/*/]
+// TEST[s/my-index/my-index-000001/]
+// TEST[s/WHERE "column" = "value"//]
+
+[[sql-search-api-request]]
+==== {api-request-title}
+
+`GET _sql`
+
+`POST  _sql`
+
+[[sql-search-api-prereqs]]
+==== {api-prereq-title}
+
+* If the {es} {security-features} are enabled, you must have the `read`
+<<privileges-list-indices,index privilege>> for any data stream, index,
+or alias you search.
+
+[role="child_attributes"]
+[[sql-search-api-query-params]]
+==== {api-query-parms-title}
+
+`format`::
+(Optional, string) Format for the response. For valid values, see <<sql-rest-format>>.
++
+You can also specify the response format using the `Accept` HTTP header. If
+specified, this parameter overrides that header. 
+
+[role="child_attributes"]
+[[sql-search-api-request-body]]
+==== {api-request-body-title}
+
+// tag::sql-search-params[]
+`binary_format`::
+(Optional, Boolean) For internal use by {es-sql} drivers and the {es-sql} CLI
+only. If `true`, use a binary CBOR format to communicate between the {es} server
+and the drivers or CLI. If `false`, use a JSON format. Defaults to `true`.
+
+`columnar`::
+(Optional, Boolean) If `true`, return results in a column-based layout. If
+`false`, return results in a row-based layout. Defaults to `false`. `true` is
+only valid for the following formats:
++
+* `cbor`
+* `json`
+* `smile`
+* `yaml`
+// end::sql-search-params[]
+
+`cursor`::
+(Optional, string) Cursor ID used to retrieve a set of paginated search results.
+If provided, the request uses only the following body parameters:
++
+* `page_timeout`
+* `request_timeout`
+* `time_zone`
++
+The request ignores other body parameters.
++
+For more information about SQL pagination, see <<sql-pagination>>.
+
+// tag::sql-search-params[]
+[[sql-fetch-size]]
+`fetch_size`::
+(Optional, integer) Maximum number of hits to return in the response. Defaults
+to `1000`.
+
+[[sql-field-multi-value-leniency]]
+`field_multi_value_leniency`::
+(Optional, Boolean) If `true`, return an error for a field in the query contains
+<<array,multiple values>>. If `false`, use the first value for multi-value
+fields. Defaults to `true`.
++
+{es} makes no guarantees about the first value of multi-value fields. It's
+typically the first value in natural ascending order.
+
+`filter`::
+(Optional, <<query-dsl,Query DSL object>>) Query, written in Query DSL, used to
+filter the events on which the SQL `query` runs. See <<sql-rest-filtering>>.
+
+`index_include_frozen`::
+(Optional, Boolean) If `true`, include <<frozen-indices,frozen indices>> in the
+query. Defaults to `false`.
+
+`keep_alive`::
+(Optional, <<time-units,time value>>)
+Period for which the search and its results are stored on the cluster. Defaults
+to `5d` (five days). Must be greater than `1m` (one minute).
++
+When this period expires, {es} deletes the search and its results, even if the
+search is still ongoing.
++
+If `keep_on_completion` is `false`, {es} only stores searches that don't
+finish within the period set by `wait_for_completion_timeout`, regardless of
+this value.
+
+`keep_on_completion`::
+(Optional, Boolean) If `true`, {es} stores the search and its results on the
+cluster. If `false`, {es} stores the search and its results only if it doesn't
+finish before the `wait_for_completion_timeout`. Defaults to `false`.
+
+`mode`::
+(Optional, string) For internal use by the <<sql-jdbc,SQL JDBC driver>> only.
+Mode used to define response content. Possible values are `plain` (default) and
+`jdbc`. If specified, you must also specify the `version`.
+
+`page_timeout`::
+(Optional, <<time-units,time value>>) Timeout period for pagination requests.
+Requests that exceed this period return an error. Defaults to `45s` (45
+seconds).
+
+`params`::
+(Optional, array of strings and integers) Values used to replace `?` variables
+in the query. The query applies this values sequentially in the order provided.
+
+`query`::
+(Required, string) SQL query to run. For syntax, see <<sql-spec>>.
+
+`request_timeout`::
+(Optional, <<time-units,time value>>) Timeout period for the request. Requests
+that exceed this period return an error. Defaults to `90s` (90 seconds).
+
+`runtime_mappings`::
+(Optional, object) Defines one or more <<runtime-search-request,runtime fields>>
+for the search. These fields take precedence over mapped fields with the
+same name.
+
+[[sql-time-zone]]
+`time_zone`::
+ISO 8601 time zone ID used to run the query. Defaults to `Z` (or `UTC`). For
+more valid values, see
+https://docs.oracle.com/javase/8/docs/api/java/time/ZoneId.html[Java's time zone
+ID documentation].
+
+`wait_for_completion_timeout`::
+(Optional, <<time-units,time value>>)
+Duration to wait for the search to finish. Defaults to no timeout, meaning the
+request waits for complete results.
++
+If this parameter is specified and the search finishes during the timeout, the
+request returns complete results. If the search doesn't finish during this
+period, the search becomes async.
+
+`version`::
+(Optional, string) For internal use by the <<sql-jdbc,SQL JDBC driver>> only.
+Version of the SQL JDBC driver.
+// end::sql-search-params[]
+
+[role="child_attributes"]
+[[sql-search-api-http]]
+==== HTTP response headers
+
+Responses in the CSV, TSV, or TXT format return the following HTTP headers.
+
+`Async-ID`::
+// tag::sql-search-async-id[]
+(string) Identifier for the search. This ID is only provided if:
++
+* The search doesn't finish during the `wait_for_completion_timeout` and becomes
+async.
+* `keep_on_completion` is `true`.
++
+You can use this ID with the following async SQL search APIs:
++
+* <<get-async-sql-search-api>>
+* <<get-async-sql-search-status-api>>
+* <<delete-async-sql-search-api>>
+// end::sql-search-async-id[]
+
+`Async-partial`::
+// tag::sql-search-async-partial[]
+(Boolean) If `true`, the response does not contain complete search results.
+// end::sql-search-async-partial[]
+
+`Async-running`::
+// tag::sql-search-async-running[]
+(Boolean) If `true`, the search request is still running. If both this and
+`is_partial` are `true`, the search is async.
++
+If `is_running` is `false` but `is_partial` is `true`, the search returned
+partial results due to a failure. Only some shards returned results or the node
+coordinating the search failed.
+// end::sql-search-async-running[]
+
+`Cursor`::
+// tag::sql-search-cursor[]
+(string) Cursor ID for the next set of paginated search results. You can use
+this cursor in this API's `cursor` request body parameter. See
+<<sql-pagination>>.
+// end::sql-search-cursor[]
+
+[role="child_attributes"]
+[[sql-search-api-response-body]]
+==== {api-response-body-title}
+
+Responses in the JSON or YAML format return the following body.
+
+`columns`::
+(array of objects) Columns for the search results.
+
+`cursor`::
+include::sql-search-api.asciidoc[tag=sql-search-cursor]
+
+`id`::
+include::sql-search-api.asciidoc[tag=sql-search-async-id]
+
+`is_partial`::
+include::sql-search-api.asciidoc[tag=sql-search-async-partial]
+
+`is_running`::
+include::sql-search-api.asciidoc[tag=sql-search-async-running]
+
+`rows`::
+(array of objects) Rows for the search results.

@@ -1,0 +1,45 @@
+[role="xpack"]
+[testenv="basic"]
+[[sql-translate-api]]
+=== SQL translate API
+++++
+<titleabbrev>SQL translate</titleabbrev>
+++++
+
+Translates an <<xpack-sql,SQL search>> into an equivalent {es}
+<<search-search,search API>> request containing <<query-dsl,Query DSL queries>>.
+
+[source,console]
+----
+POST _sql/translate
+{
+  "query": """
+    SELECT "field" FROM "my-index" WHERE "column" = "value"
+  """,
+  "fetch_size": 10
+}
+----
+// TEST[setup:my_index]
+// TEST[s/"field"/*/]
+// TEST[s/my-index/my-index-000001/]
+// TEST[s/WHERE "column" = "value"//]
+
+[[sql-translate-api-request]]
+==== {api-request-title}
+
+`GET _sql/translate`
+
+`POST _sql/translate`
+
+[[sql-translate-api-prereqs]]
+==== {api-prereq-title}
+
+* If the {es} {security-features} are enabled, you must have the `read`
+<<privileges-list-indices,index privilege>> for any data stream, index,
+or alias you search.
+
+[role="child_attributes"]
+[[sql-translate-api-request-body]]
+==== {api-request-body-title}
+
+include::sql-query-api.asciidoc[tag=sql-query-params]
