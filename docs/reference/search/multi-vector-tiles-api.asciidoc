@@ -1,0 +1,177 @@
+
+[[multi-vector-tiles-api]]
+=== Multi-vector tile API
+++++
+<titleabbrev>Multi-vector tile</titleabbrev>
+++++
+
+Returns geospatial search results in a binary
+https://github.com/mapbox/vector-tile-spec[Mapbox vector tile] (`.mvt`) file.
+You can use vector tiles to render geographic data from {es} on a map.
+
+////
+[source,console]
+----
+PUT my-index
+{
+  "mappings": {
+    "properties": {
+      "my-geo-field": {
+        "type": "geo_point"
+      }
+    }
+  }
+}
+
+PUT my-index/_doc/0?refresh
+{
+  "my-geo-field": "37.386051,-122.083855"
+}
+----
+////
+
+[source,console]
+----
+GET my-index/_mvt/my-geo-field/8/41/99
+----
+// TEST[continued]
+
+[[multi-vector-tiles-api-request]]
+==== {api-request-title}
+
+`GET <target>/_mvt/<field>/<zoom>/<x>/<y>`
+
+[[multi-vector-tiles-api-path-params]]
+==== {api-path-parms-title}
+
+`<target>`::
+(Required, string) Comma-separated list of data streams, indices, or aliases to
+search. Supports wildcards (`*`). To search all data streams and indices, omit
+this parameter or use `*` or `_all`.
+
+`<field>`::
+(Required, string) Field containing geospatial data to return. Must be a
+<<geo-point,`geo_point`>> or <<geo-shape,`geo_shape`>> field.
+
+`<zoom>`::
+(Required, integer) Zoom level for the tile. Valid values are `0`-`29`.
+
+`<x>`::
+(Required, integer) X coordinate for the tile. Supports tile coordinates only.
+
+`<y>`::
+(Required, integer) Y coordinate for the tile. Supports tile coordinates only.
+
+[[multi-vector-tiles-api-desc]]
+==== {api-description-title}
+
+Internally, {es} translates each multi-vector tile API request into a search
+containing:
+
+* A <<query-dsl-geo-bounding-box-query,`geo_bounding_box`>> query on the
+`<field>`, bounded by the tile's coordinates
+
+* A <<search-aggregations-bucket-geotilegrid-aggregation,`geotile_grid`>>
+aggregation on the `<field>`, bounded by the tile's coordinates
+
+* A <<search-aggregations-metrics-geobounds-aggregation,`geo_bounds`>>
+aggregation on the `<field>`
+
+For example, {es} translates the following request:
+
+[source,console]
+----
+GET my-index/_mvt/my-geo-field/8/41/99
+----
+// TEST[continued]
+
+Into the following search:
+
+[source,console]
+----
+GET my-index/_search
+{
+  "size": 10000,
+  "query": {
+    "geo_bounding_box": {
+      "my-geo-field": {
+        "top_left": {"lat": -122.343750, "lon": 36.597889},
+        "bottom_right": { "lat": -120.937501, "lon": 37.718590}
+      }
+    }
+  },
+  "aggregations": {
+    "grid": {
+      "geotile_grid": {
+        "field": "my-geo-field",
+        "precision": 11,
+        "size": 65536,
+        "bounds": {
+          "top_left": {"lat": -122.343750, "lon": 36.597889},
+          "bottom_right": {"lat": -120.937501, "lon": 37.718590}
+        }
+      }
+    },
+    "bounds": {
+      "geo_bounds": {
+        "field": "my-geo-field", "wrap_longitude": false
+      }
+    }
+  }
+}
+----
+
+{es} then groups and serializes the results into a vector tile. The returned
+tile contains three layers:
+
+* A `hits` layer containing one feature for each document that matches the
+`geo_bounding_box` query
+
+*  An `aggs` layer containing one feature for each bucket in the `geotile_grid`
+aggregation results
+
+* A `meta` layer containing a feature for the `geo_bounds` aggregation result
+
+[[multi-vector-tiles-api-query-params]]
+==== {api-query-parms-title}
+
+`size`::
+(Optional, integer) Maximum number of features to return. Defaults to
+`1000`.
++
+If both this and the `size` request body parameter are specified, only this
+parameter is used.
+
+[role="child_attributes"]
+[[multi-vector-tiles-api-request-body]]
+==== {api-request-body-title}
+
+`aggs`::
+(Optional, object)
+
+`exact_bounds`::
+(Optional, Boolean)
+
+`extent`::
+(Optional, integer)
+
+`fields`::
+(Optional, array of strings and objects)
+
+`grid_precision`::
+(Optional, integer)
+
+`grid_type`::
+(Optional, string)
+
+`query`::
+(Optional, object)
+
+`runtime_mappings`::
+(Optional, object)
+
+`size`::
+(Optional, integer)
+
+`sort`::
+(Optional, array of objects)

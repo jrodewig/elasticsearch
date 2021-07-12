@@ -1,0 +1,54 @@
+{
+  "multi_vector_tiles": {
+    "documentation": {
+      "url": "https://www.elastic.co/guide/en/elasticsearch/reference/master/mapbox-vector-tiles-api.html",
+      "description": "Returns geospatial search results in a binary Mapbox vector tile (`.mvt`) file."
+    },
+    "stability":"experimental",
+    "visibility": "public",
+    "headers": {
+      "accept": [
+        "application/json"
+      ]
+    },
+    "url": {
+      "paths": [
+        {
+          "path": "/{index}/_mvt/{field}/{zoom}/{x}/{y}",
+          "methods": [
+            "GET"
+          ],
+          "parts": {
+            "index": {
+              "type": "list",
+              "description": "Comma-separated list of data streams, indices, or aliases to search; use `*`, `_all`, or an empty string to search all data streams and indices"
+            },
+            "field": {
+              "type": "string",
+              "description": "Field containing geospatial data to return. Must be a `geo_point` or `geo_shape` field."
+            },
+            "zoom": {
+              "type": "integer",
+              "description": "Zoom level for the vector tile. Valid values are `0`-`29`."
+            },
+            "x": {
+              "type": "integer",
+              "description": "X tile coordinate for the vector tile."
+            },
+            "y": {
+              "type": "integer",
+              "description": "Y tile coordinate for the vector tile."
+            }
+          }
+        }
+      ]
+    },
+    "params": {
+      "size": {
+        "type": "integer",
+        "description": "Maximum number of features to return",
+        "default": "10000"
+      }
+    }
+  }
+}
